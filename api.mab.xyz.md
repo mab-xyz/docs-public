@@ -12,6 +12,12 @@ X-API-Key: <your-api-key>
 
 A missing key returns `401 Unauthorized`. An invalid or revoked key returns `403 Forbidden`.
 
+Before running any of the curl examples in this document, export your API key:
+
+```bash
+export MAB_API_KEY=<your-api-key>
+```
+
 ---
 
 ## POST /v1/analysis/tx-risk-raw
@@ -101,7 +107,13 @@ Each element in `details` describes one address touched during the simulation.
 
 ## Examples
 
-All examples use a real mainnet transaction. The raw transaction hex is taken directly from the signed payload as broadcast on Ethereum mainnet. Pass your API key via the `$MAB_API_KEY` environment variable.
+All examples use a real mainnet transaction. The raw transaction hex is taken directly from the signed payload as broadcast on Ethereum mainnet.
+
+Before running any example, make sure your API key is exported in your shell:
+
+```bash
+export MAB_API_KEY=<your-api-key>
+```
 
 ---
 
@@ -336,16 +348,16 @@ The root contract at `depth: 0` is known and fine. The delegate at `depth: 1` ha
 
 ### DANGEROUS — first-time interaction with no prior scan data
 
-**Mainnet tx:** `0x013be97768b702fe8eccef1a40544d5ecb3c1961ad5f87fee4d16fdc08c78106`
+**Mainnet tx:** `0x0af5a6d2d8b49f68dcfd4599a0e767450e76e08a5aeba9b3d534a604d308e60b`
 
-The target (`0x81D73c5545...`) is unverified and has no scan history at all (`interaction_state: "MISSING"`). The system has never seen this address before. Both the root-level call (`contract_direct`) and the transitive call chain (`contract_transitive`) are flagged.
+The target is the SushiSwap router (`0xd9e1cE17f2...`, verified). The scan database has no history for this sender/contract pair — `interaction_state: "MISSING"` — so the system cannot confirm prior interaction. It conservatively treats this as a first-time interaction. All touched contracts are verified, so `UNVERIFIED` does not apply.
 
 ```bash
 curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
   -H "X-API-Key: $MAB_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "raw_tx": "0xf86905850649534e00839896809481d73c55458f024cdc82bbf27468a2deaa631407808492d7c94025a0c492cddfa07592d0572cb26981dd9422ed5a5b388ab6591b67f18746c99623d2a06f91ccd4ebcf066f42f6597879da66bc81116c4935a7f1b8e3f29d9d3fdf519c"
+    "raw_tx": "0xf901948201b0851bf08eb000830c920294d9e1ce17f2641f24ae83637ab66a2cca9c378b9f87038d7ea4c68000b901247ff36ab50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008000000000000000000000000051841d9afe10fe55571bdb8f4af1060415003528ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000004000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000798d1be841a82a273720ce31c822c61a67a601c30000000000000000000000002260fac5e5542a773aa44fbcfedf7c193bc2c599000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc225a06a5139f2697ee961c68d22527b6d098e93ce31a1b3edea73cc0713b5e6ce7ba1a0197c99469297315da8bce6d095d211745df5afa1f8bee110e706e6e273c86e3f"
   }'
 ```
 
@@ -363,13 +375,13 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
   "dangerous_interaction_types": ["contract_direct", "contract_transitive"],
   "details": [
     {
-      "address": "0x81D73c55458f024CDC82BbF27468A2dEAA631407",
+      "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
       "first_time": true,
       "verification": {
-        "address": "0x81d73c55458f024cdc82bbf27468a2deaa631407",
-        "verification": "not-verified",
-        "verifiedAt": "N/A",
-        "source": "etherscan"
+        "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
+        "verification": "verified",
+        "verifiedAt": "2025-07-04T20:43:16Z",
+        "source": "sourcify"
       },
       "depth": 0,
       "types": null,
@@ -385,16 +397,16 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
       "delegate_address": null
     },
     {
-      "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "address": "0xf41E354EB138B328d56957B36B7F814826708724",
       "first_time": true,
       "verification": {
-        "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "address": "0xf41e354eb138b328d56957b36b7f814826708724",
         "verification": "verified",
-        "verifiedAt": "2024-08-08T13:28:37Z",
-        "source": "sourcify"
+        "verifiedAt": "N/A",
+        "source": "etherscan"
       },
       "depth": 1,
-      "types": { "CALL": 1 },
+      "types": { "STATICCALL": 1 },
       "interaction_first_time": {
         "contract_direct": false,
         "contract_transitive": true
@@ -410,7 +422,7 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
 }
 ```
 
-`interaction_state: "MISSING"` on the root contract means the scan database has no history for it — the system conservatively treats it as a first-time interaction. The second touched address is WETH (`0xC02aaA39...`), which is well-known and verified; its `contract_direct` is `FOUND` and not first-time, but `contract_transitive` is first-time because the root contract has never transitively reached it before.
+`interaction_state: "MISSING"` on the root contract means the scan database has no history for this sender/contract pair. The system conservatively treats it as first-time. The second touched contract at `depth: 1` has `FOUND` history and is not first-time for `contract_direct`, but is first-time for `contract_transitive` — triggering the dangerous verdict through the transitive check as well.
 
 ---
 
@@ -472,7 +484,7 @@ The contract is verified so `UNVERIFIED` does not apply. `interaction_state: "MI
 
 ### OK — contract deployment (no `to` address)
 
-**Mainnet tx:** `0x2f8d88785b93928a87807d10eae1b813f2fafb05e9b1c221daf7fcd51348f086`
+**Mainnet tx:** `0xaf63f86aeb19f6bd88ee7acadb508f7628337e43e50b80a5cc4d04085b90ef8f`
 
 This is a legacy Type 0 transaction that deploys a new contract (the `to` field is absent in the RLP encoding). Contract-based interaction checks are skipped entirely. `interaction_status` shows all four types as `"not_checked"`.
 
@@ -481,11 +493,9 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
   -H "X-API-Key: $MAB_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "raw_tx": "0xf912be138504bca1e7c4834016408080b9126b606060405234156200000d57fe5b6040516200118b3803806200118b83398101604090815281516020830151918301519083019291909101905b5b60005b600160a060020a0333166000908152600160209081526040808320858452909152902054600014156200009f57600180840160008181526020819052604090208190556200009f565b5b60010162000060565b600160a060020a033316600090815260016020818152604092839020868452825191820192909252908101848152606082018490526080820181905260a08201849052600080516020620011698339815191529060c001604051809103902060005b0155"
+    "raw_tx": "0xf8ae2b850826299e00830120428080b85c61004456600436101561000d5761003a565b600035601c52600051341561002157600080fd5b63d2dce03d81141561003857600060005260206000f35b505b60006000fd5b61000461004403610004600039610004610044036000f325a082dbaaf0e0136eb02866de434c006744711062148fcde08aff0dd85f4d9bbb12a02fa1fdb368a4e6f48f93d3915feecd0b3935e006fa88536cdd8cc44fd82839d8"
   }'
 ```
-
-> **Note:** The full transaction hex is ~4 KB of contract bytecode. Only the first 320 characters are shown here. Use the complete hex in production.
 
 ```json
 {
@@ -511,13 +521,15 @@ All interaction types are `"not_checked"` because there is no destination contra
 
 When a wallet generates a transaction before signing it, the sender cannot be recovered from the signature. Pass `sender_address` alongside the raw unsigned bytes.
 
+The example below is the unsigned form of mainnet tx `0xd07fb0e7783899dd01f5106e67ae92c98f5f70212de8b4b50a8ee38fd91a18f8` (a plain ETH transfer), produced by stripping the `v`, `r`, `s` fields from the signed RLP.
+
 ```bash
 curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
   -H "X-API-Key: $MAB_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "raw_tx": "0x02ef0114808502540be40085012a05f2008252089412345678901234567890123456789012345678908806f05b59d3b2000080c0",
-    "sender_address": "0xAbCdEf1234567890AbCdEf1234567890AbCdEf12"
+    "raw_tx": "0x02ea011283154c23840e77afb18252d09428fbdae892ffe613a89c3ae8fa8b336b68cf6e08843b9aca0080c0",
+    "sender_address": "0x97c542f03aE3A0be3079a54d8e1532D5Ebe56982"
   }'
 ```
 
