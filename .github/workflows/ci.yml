@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  curl-examples:
+    name: Run curl examples
+    runs-on: ubuntu-latest
+    env:
+      MAB_API_KEY: ${{ secrets.MAB_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run curl examples
+        run: python scripts/run_curl_examples.py api.mab.xyz.md

@@ -70,6 +70,33 @@ def redact_api_key(command: str, api_key: str | None) -> str:
     return command.replace(api_key, "***REDACTED***")
 
 
+def resolve_api_key() -> str:
+    api_key = os.environ.get("MAB_API_KEY")
+    if api_key:
+        return api_key
+
+    try:
+        result = subprocess.run(
+            ["keyring", "get", "crystal-clear", "MAB_API_KEY"],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        result = None
+    else:
+        if result.returncode == 0:
+            api_key = result.stdout.strip()
+            if api_key:
+                return api_key
+
+    print(
+        "error: missing API key. Set MAB_API_KEY in the environment or store it in keyring "
+        "under service 'crystal-clear' and username 'MAB_API_KEY' before running this script.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+
 def run_command(command: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", "-lc", command],
@@ -100,13 +127,14 @@ def main() -> int:
         print(f"error: file not found: {markdown_path}", file=sys.stderr)
         return 1
 
+    api_key = resolve_api_key()
+
     examples = extract_curl_commands(markdown_path.read_text(encoding="utf-8"))
     if not examples:
         print(f"error: no curl commands found in {markdown_path}", file=sys.stderr)
         return 1
 
-    api_key = os.environ.get("MAB_API_KEY") or os.environ.get("API_KEY")
-
+    failed = 0
     for index, example in enumerate(examples, start=1):
         command = inject_api_key(example.command, api_key)
         display_command = redact_api_key(command, api_key)
@@ -125,6 +153,13 @@ def main() -> int:
         print(f"[exit_code={result.returncode}]")
         print()
 
+        if result.returncode != 0:
+            print(f"FAIL: example {index} exited with code {result.returncode}", file=sys.stderr)
+            failed += 1
+
+    if failed:
+        print(f"\n{failed}/{len(examples)} example(s) failed.", file=sys.stderr)
+        return 1
     return 0
 
 
