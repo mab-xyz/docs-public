@@ -208,11 +208,11 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
 
 ---
 
-### DANGEROUS — unverified contract
+### OK — EIP-7702 delegated EOA (verified delegate)
 
 **Mainnet tx:** `0xff3620eb165e2dabc0e630da58da0abd0403bb8d1d588881ed740861fe8692cf`
 
-The target contract (`0x62E4d5D74b...`) has no verified source code on Etherscan. Any unverified contract in the execution path triggers an immediate `DANGEROUS` verdict regardless of interaction history.
+The destination (`0x62E4d5D74b...`) is an EIP-7702 delegated EOA whose delegate contract (`0xD2e28229F6...`) is fully verified on Sourcify. The API returns `OK` with `ok_reason: "EIP-7702 delegated EOA (verified delegate)"`. The `verification` field in `details` refers to the delegate contract, not the EOA itself.
 
 ```bash
 curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
@@ -225,9 +225,9 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
 
 ```json
 {
-  "status": "DANGEROUS",
-  "danger_reason": "UNVERIFIED",
-  "ok_reason": null,
+  "status": "OK",
+  "danger_reason": null,
+  "ok_reason": "EIP-7702 delegated EOA (verified delegate)",
   "interaction_status": {
     "sender_direct": "not_checked",
     "sender_transitive": "not_checked",
@@ -240,10 +240,10 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
       "address": "0x62E4d5D74bF8E3074BAeFf17A197Ca105499D87d",
       "first_time": false,
       "verification": {
-        "address": "0x62e4d5d74bf8e3074baeff17a197ca105499d87d",
-        "verification": "not-verified",
-        "verifiedAt": "N/A",
-        "source": "etherscan"
+        "address": "0xD2e28229F6f2c235e57De2EbC727025A1D0530FB",
+        "verification": "fully-verified",
+        "verifiedAt": "2025-06-10T16:50:57Z",
+        "source": "sourcify"
       },
       "depth": 0,
       "types": null,
@@ -255,14 +255,14 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
         "contract_direct": "FOUND",
         "contract_transitive": "FOUND"
       },
-      "is_eip7702": false,
-      "delegate_address": null
+      "is_eip7702": true,
+      "delegate_address": "0xD2e28229F6f2c235e57De2EbC727025A1D0530FB"
     }
   ]
 }
 ```
 
-`verification: "not-verified"` is the sole reason for the `DANGEROUS` verdict. Note that `interaction_status` shows `"ok"` for both contract types — the interaction history is known — but the missing source code still makes the transaction dangerous.
+`is_eip7702: true` identifies the destination as a delegated EOA. The `verification` block reports the delegate contract's status, not the EOA's. A verified delegate produces an `OK` verdict; an unverified delegate would produce `DANGEROUS` with `danger_reason: "EIP_7702_UNVERIFIED_DELEGATE"`.
 
 ---
 
@@ -346,11 +346,11 @@ The root contract at `depth: 0` is known and fine. The delegate at `depth: 1` ha
 
 ---
 
-### DANGEROUS — first-time interaction with no prior scan data
+### OK — verified contracts with known interaction history (SushiSwap router)
 
 **Mainnet tx:** `0x0af5a6d2d8b49f68dcfd4599a0e767450e76e08a5aeba9b3d534a604d308e60b`
 
-The target is the SushiSwap router (`0xd9e1cE17f2...`, verified). The scan database has no history for this sender/contract pair — `interaction_state: "MISSING"` — so the system cannot confirm prior interaction. It conservatively treats this as a first-time interaction. All touched contracts are verified, so `UNVERIFIED` does not apply.
+The target is the SushiSwap router (`0xd9e1cE17f2...`, verified). Both touched contracts are verified and the scan database has history for all interactions — `interaction_state: "FOUND"` and `first_time: false` throughout. The API returns `OK`.
 
 ```bash
 curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
@@ -363,20 +363,20 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
 
 ```json
 {
-  "status": "DANGEROUS",
-  "danger_reason": "FIRST_TIME_INTERACTION",
+  "status": "OK",
+  "danger_reason": null,
   "ok_reason": null,
   "interaction_status": {
     "sender_direct": "not_checked",
     "sender_transitive": "not_checked",
-    "contract_direct": "dangerous",
-    "contract_transitive": "dangerous"
+    "contract_direct": "ok",
+    "contract_transitive": "ok"
   },
-  "dangerous_interaction_types": ["contract_direct", "contract_transitive"],
+  "dangerous_interaction_types": [],
   "details": [
     {
       "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-      "first_time": true,
+      "first_time": false,
       "verification": {
         "address": "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
         "verification": "verified",
@@ -386,30 +386,30 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
       "depth": 0,
       "types": null,
       "interaction_first_time": {
-        "contract_direct": true,
-        "contract_transitive": true
+        "contract_direct": false,
+        "contract_transitive": false
       },
       "interaction_state": {
-        "contract_direct": "MISSING",
-        "contract_transitive": "MISSING"
+        "contract_direct": "FOUND",
+        "contract_transitive": "FOUND"
       },
       "is_eip7702": false,
       "delegate_address": null
     },
     {
       "address": "0xf41E354EB138B328d56957B36B7F814826708724",
-      "first_time": true,
+      "first_time": false,
       "verification": {
-        "address": "0xf41e354eb138b328d56957b36b7f814826708724",
+        "address": "0xf41E354EB138B328d56957B36B7F814826708724",
         "verification": "verified",
-        "verifiedAt": "N/A",
-        "source": "etherscan"
+        "verifiedAt": "2026-03-09T15:35:38Z",
+        "source": "sourcify"
       },
       "depth": 1,
       "types": { "STATICCALL": 1 },
       "interaction_first_time": {
         "contract_direct": false,
-        "contract_transitive": true
+        "contract_transitive": false
       },
       "interaction_state": {
         "contract_direct": "FOUND",
@@ -422,7 +422,7 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
 }
 ```
 
-`interaction_state: "MISSING"` on the root contract means the scan database has no history for this sender/contract pair. The system conservatively treats it as first-time. The second touched contract at `depth: 1` has `FOUND` history and is not first-time for `contract_direct`, but is first-time for `contract_transitive` — triggering the dangerous verdict through the transitive check as well.
+Both contracts have `interaction_state: "FOUND"` and `first_time: false` — the scan database has authoritative history confirming this is a repeat interaction. All contracts are verified, so neither `UNVERIFIED` nor `FIRST_TIME_INTERACTION` applies.
 
 ---
 
