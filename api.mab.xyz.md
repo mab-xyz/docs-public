@@ -128,13 +128,6 @@ This endpoint is designed for post-confirmation analysis workflows: given a tran
 |---|---|---|
 | `tx_hash` | `string` | 0x-prefixed 32-byte transaction hash of a confirmed mainnet transaction. |
 
-#### Query parameters
-
-| Parameter | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `interaction_type` | `string` | no | `null` | Single interaction type to check. One of `sender_direct`, `sender_transitive`, `contract_direct`, `contract_transitive`. When omitted, defaults to `contract_direct` and `contract_transitive`. |
-| `latest_offset` | `integer` | no | `100` | Limits first-time interaction checks to the most recent N blocks. Reduces database scan cost for high-traffic deployments. |
-
 ### Response
 
 Identical shape to `tx-risk-raw`. See [Response fields](#response) and [Details items](#details-items) in the `tx-risk-raw` section above.
