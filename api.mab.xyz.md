@@ -43,7 +43,7 @@ This endpoint is designed for wallets, frontends, and compliance workflows that 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `raw_tx` | `string` | **yes** | — | 0x-prefixed hex of the raw transaction bytes. Accepts signed and unsigned legacy, EIP-2930, and EIP-1559 transactions. |
-| `sender_address` | `string` | conditional | `null` | 0x-prefixed sender address. Required when `raw_tx` is an unsigned transaction. Ignored when the transaction is signed (the sender is recovered from the signature instead). |
+| `sender_address` | `string` | no | `null` | 0x-prefixed sender address. For signed transactions the sender is recovered from the signature and this field is ignored. For unsigned transactions, if omitted the zero address (`0x0000000000000000000000000000000000000000`) is used as the sender; provide an explicit address to simulate from a specific account. |
 | `block_tag` | `string` | no | `"latest"` | Block tag (`"latest"`, `"pending"`, `"safe"`, `"finalized"`) or a decimal block number at which to simulate the transaction. |
 | `latest_offset` | `integer` | no | `100` | Limits first-time interaction checks to the most recent N blocks. Reduces database scan cost for high-traffic deployments. |
 | `from_block` | `string` | no | `null` | Lower bound block (decimal number or tag) for the interaction history scan window. |
@@ -517,11 +517,25 @@ All interaction types are `"not_checked"` because there is no destination contra
 
 ---
 
-### Unsigned transaction — providing `sender_address` explicitly
+### Unsigned transaction
 
-When a wallet generates a transaction before signing it, the sender cannot be recovered from the signature. Pass `sender_address` alongside the raw unsigned bytes.
+When a wallet generates a transaction before signing it, the sender cannot be recovered from the signature. The endpoint accepts the unsigned payload directly — `sender_address` is optional.
+
+- **Without `sender_address`** the simulation runs from `0x0000000000000000000000000000000000000000`. This is useful for pure contract-safety checks where the caller identity does not matter.
+- **With `sender_address`** the simulation runs from the specified account, which is required for accurate first-time interaction checks tied to the sender.
 
 The example below is the unsigned form of mainnet tx `0xd07fb0e7783899dd01f5106e67ae92c98f5f70212de8b4b50a8ee38fd91a18f8` (a plain ETH transfer), produced by stripping the `v`, `r`, `s` fields from the signed RLP.
+
+```bash
+curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
+  -H "X-API-Key: $MAB_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raw_tx": "0x02ea011283154c23840e77afb18252d09428fbdae892ffe613a89c3ae8fa8b336b68cf6e08843b9aca0080c0"
+  }'
+```
+
+Pass `sender_address` to simulate from a specific account:
 
 ```bash
 curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
@@ -532,11 +546,3 @@ curl -X POST https://api.mab.xyz/v1/analysis/tx-risk-raw \
     "sender_address": "0x97c542f03aE3A0be3079a54d8e1532D5Ebe56982"
   }'
 ```
-
-If `sender_address` is omitted for an unsigned transaction the endpoint returns HTTP 422:
-
-```json
-{
-  "detail": "Transaction Error: This transaction appears to be unsigned ... 'sender_address' must be provided in the request body for simulation."
-}
-
